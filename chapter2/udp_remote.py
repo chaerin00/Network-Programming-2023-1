@@ -23,13 +23,16 @@ def server(interface, port):
         sock.sendto(data, address)
 
 
+# for using 127.0.0.*
+# sudo ifconfig lo0 alias 127.0.0.* up
 def client(hostname, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.connect((hostname, port))
     print('Client socket name is {}'.format(sock.getsockname()))
 
     delay = 0.1
-    text = 'The time is {}'.format(datetime.now())
+    text = 'This is another message'
+    # text = 'The time is {}'.format(datetime.now())
     data = text.encode('ascii')
     while True:
         sock.send(data)
