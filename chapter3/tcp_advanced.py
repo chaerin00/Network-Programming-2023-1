@@ -17,6 +17,7 @@ def server(host, port):
         while True:
             data = sc.recv(1024)
             # file eof
+            # client close()
             if not data:
                 break
             output = data.decode('ascii').upper().encode('ascii')
@@ -29,6 +30,9 @@ def server(host, port):
         print('  Socket closed')
 
 
+# python tcp_advanced.py client localhost 2001
+# python tcp_advanced.py client localhost 1000000: deadlock happened!
+# server got stuck before client got stuck
 def client(host, port, bytecount):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     bytecount = (bytecount + 15) // 16 * 16  # round up to a multiple of 16
