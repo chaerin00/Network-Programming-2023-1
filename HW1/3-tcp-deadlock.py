@@ -11,33 +11,35 @@ def server(host, port):
     print('Listening at', sock.getsockname())
     while True:
         sc, sockname = sock.accept()
-        random_num = random.randint(1, 10)
-        print('random number is ', random_num)
+        x = random.randint(1, 10)
+        print('random number is ', x)
         is_started = False
         is_correct = False
-        attempt_count = 0
+        attempt_count = 1
         while True:
             data = sc.recv(1024)
-            if not data:
-                break
-            if is_correct or attempt_count > 5:
+            if not data or is_correct or attempt_count > 5:
                 break
 
+            guess = data.decode('ascii')
+
             if not is_started:
-                request = data.decode('ascii')
-                if request == 'start':
+                if guess == 'start':
                     is_started = True
                     sc.sendall(b'start')
                 else:
-                    sc.sendall(b'if you want to play a game, type "start: "')
+                    sc.sendall(b'if you want to start a game, type "start": ')
             else:
-                guess = data.decode('ascii')
                 try:
-                    if int(guess) == random_num:
-                        output = b'correct'
+                    if int(guess) == x:
+                        output = b'Congratulations you did it.'
                         is_correct = True
-                    else:
-                        output = '{} attempts left'.format(4 - attempt_count).encode('ascii')
+                    elif attempt_count >= 5:
+                        output = b'You lost.'
+                    elif int(guess) < x:
+                        output = b' You guessed too small!"'
+                    elif int(guess) > x:
+                        output = b' You Guessed too high!'
                     attempt_count += 1
                 except ValueError:
                     output = b'please send number'
@@ -52,6 +54,7 @@ def client(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
 
+    attempt_count = 0
     while True:
         message = input('if you want to start a game, type "start": ')
         sock.sendall(message.encode('ascii'))
@@ -60,24 +63,24 @@ def client(host, port):
         while True:
             data = sock.recv(42)
             response = data.decode('ascii')
-            print(response)
+            print(response, end=' ')
 
-            if not data or response == 'correct':
+            if not data or response == 'correct' or attempt_count >= 5:
                 break
 
             if not is_started:
                 if response == 'start':
                     is_started = True
                 else:
-                    message = input('if you want to start a game, type "start": ')
+                    message = input()
                     sock.sendall(message.encode('ascii'))
                     continue
 
             message = input('\n Guess the number: ')
             sock.sendall(message.encode('ascii'))
+            attempt_count += 1
 
         break
-
     sock.close()
 
 
