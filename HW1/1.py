@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# Foundations of Python Network Programming, Third Edition
-# https://github.com/brandon-rhodes/fopnp/blob/m/py3/chapter01/search4.py
-
-# (The Google API originally used in this example now requires API keys,
-#  so here's an alternative that calls openstreetmap.org.)
-
 import socket
 
 request_text = """\
@@ -18,9 +11,9 @@ Connection: close\r\n\
 
 def ip_geolocation():
     sock = socket.socket()
-    sock.connect(('ip-api.com', 80))
-    field_list = ['city', 'regionName', 'country', 'lat', 'lon']
-    lang = 'fr'
+    sock.connect(('ip-api.com', 80))  # connect with http port 80
+    field_list = ['city', 'regionName', 'country', 'lat', 'lon']  # field query
+    lang = 'fr'  # lang query
     request = request_text.format(','.join(field_list), lang)
     sock.sendall(request.encode('ascii'))
     raw_reply = b''
