@@ -50,11 +50,16 @@ def server(address):
 def client(address):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(address)
-    sock.shutdown(socket.SHUT_RD)
-    put_block(sock, b'Beautiful is better than ugly.')
-    put_block(sock, b'Explicit is better than implicit.')
-    put_block(sock, b'Simple is better than complex.')
-    put_block(sock, b'')
+    request = input('if you want to start a game, type "start": ')
+    put_block(sock, request.encode('ascii'))
+    put_block(sock, b'')  # eof
+
+    while True:
+        block = get_block(sock)
+        if not block:
+            break
+        print('Block says:', repr(block))
+
     sock.close()
 
 
