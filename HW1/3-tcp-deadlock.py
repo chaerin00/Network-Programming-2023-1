@@ -1,7 +1,6 @@
 import argparse
 import random
 import socket
-import sys
 
 
 def server(host, port):
@@ -21,11 +20,16 @@ def server(host, port):
             data = sc.recv(1024)
             if not data:
                 break
+            if is_correct or attempt_count > 5:
+                break
+
             if not is_started:
                 request = data.decode('ascii')
                 if request == 'start':
                     is_started = True
                     sc.sendall(b'start')
+                else:
+                    sc.sendall(b'if you want to play a game, type "start: "')
             else:
                 guess = data.decode('ascii')
                 try:
@@ -37,10 +41,9 @@ def server(host, port):
                     attempt_count += 1
                 except ValueError:
                     output = b'please send number'
-                sc.sendall(output)  # send it back uppercase
-                sys.stdout.flush()
-            if is_correct or attempt_count > 5:
-                break;
+                sc.sendall(output)
+
+        sc.sendall(b'')
         sc.close()
         print('  Socket closed')
 
@@ -52,22 +55,28 @@ def client(host, port):
     while True:
         message = input('if you want to start a game, type "start": ')
         sock.sendall(message.encode('ascii'))
-        print('sent', message)
 
-        received = 0
+        is_started = False
         while True:
             data = sock.recv(42)
-            if not received:
-                print("let's start!")
-            if not data:
+            response = data.decode('ascii')
+            print(response)
+
+            if not data or response == 'correct':
                 break
-            received += len(data)
-            print(data, end=' ')
+
+            if not is_started:
+                if response == 'start':
+                    is_started = True
+                else:
+                    message = input('if you want to start a game, type "start": ')
+                    sock.sendall(message.encode('ascii'))
+                    continue
 
             message = input('\n Guess the number: ')
             sock.sendall(message.encode('ascii'))
 
-        sys.stdout.flush()
+        break
 
     sock.close()
 
