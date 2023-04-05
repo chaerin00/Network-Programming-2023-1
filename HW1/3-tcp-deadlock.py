@@ -1,4 +1,5 @@
 import argparse
+import random
 import socket
 import sys
 
@@ -11,18 +12,35 @@ def server(host, port):
     print('Listening at', sock.getsockname())
     while True:
         sc, sockname = sock.accept()
-        print('Processing up to 1024 bytes at a time from', sockname)
-        n = 0
+        random_num = random.randint(1, 10)
+        print('random number is ', random_num)
+        is_started = False
+        is_correct = False
+        attempt_count = 0
         while True:
             data = sc.recv(1024)
             if not data:
                 break
-            output = data.decode('ascii').upper().encode('ascii')
-            sc.sendall(output)  # send it back uppercase
-            n += len(data)
-            print('\r  %d bytes processed so far' % (n,), end=' ')
-            sys.stdout.flush()
-        print()
+            if not is_started:
+                request = data.decode('ascii')
+                if request == 'start':
+                    is_started = True
+                    sc.sendall(b'start')
+            else:
+                guess = data.decode('ascii')
+                try:
+                    if int(guess) == random_num:
+                        output = b'correct'
+                        is_correct = True
+                    else:
+                        output = '{} attempts left'.format(4 - attempt_count).encode('ascii')
+                    attempt_count += 1
+                except ValueError:
+                    output = b'please send number'
+                sc.sendall(output)  # send it back uppercase
+                sys.stdout.flush()
+            if is_correct or attempt_count > 5:
+                break;
         sc.close()
         print('  Socket closed')
 
@@ -40,15 +58,14 @@ def client(host, port):
         while True:
             data = sock.recv(42)
             if not received:
-                print('  The first data received says', repr(data))
+                print("let's start!")
             if not data:
                 break
             received += len(data)
-            print('\r  %d bytes received' % (received,), end=' ')
+            print(data, end=' ')
 
-            message = input('\nif you want to start a game, type "start": ')
+            message = input('\n Guess the number: ')
             sock.sendall(message.encode('ascii'))
-            print('sent', message)
 
         sys.stdout.flush()
 
