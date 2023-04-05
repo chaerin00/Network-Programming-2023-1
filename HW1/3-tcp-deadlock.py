@@ -11,77 +11,78 @@ def server(host, port):
     print('Listening at', sock.getsockname())
     while True:
         sc, sockname = sock.accept()
+
         x = random.randint(1, 10)
         print('random number is ', x)
+
+        # Send the initial message to the client
+        sc.sendall(b'To start the game, please send "start" as the first message.\n')
+
+        # Game loop
         is_started = False
-        is_correct = False
-        attempt_count = 1
+        guess_count = 0
         while True:
-            data = sc.recv(1024)
-            if not data or is_correct or attempt_count > 5:
-                break
+            # Receive the client's message
+            data = sc.recv(16)
+            message = data.decode()
 
-            guess = data.decode('ascii')
-
+            # Check if the client wants to start the game
             if not is_started:
-                if guess == 'start':
+                if message == 'start':
+                    guess_count += 1
                     is_started = True
-                    sc.sendall(b'start')
+                    sc.sendall(b'Guess a number between 1 to 10:\n')
                 else:
-                    sc.sendall(b'if you want to start a game, type "start": ')
+                    sc.sendall(b'To start the game, please send "start" as the first message.')
             else:
+                # Check if the client's guess is correct
                 try:
-                    if int(guess) == x:
-                        output = b'Congratulations you did it.'
-                        is_correct = True
-                    elif attempt_count >= 5:
-                        output = b'You lost.'
-                    elif int(guess) < x:
-                        output = b' You guessed too small!"'
-                    elif int(guess) > x:
-                        output = b' You Guessed too high!'
-                    attempt_count += 1
+                    guess = int(message)
                 except ValueError:
-                    output = b'please send number'
-                sc.sendall(output)
+                    sc.sendall(b'Send a number.')
+                    continue
 
-        sc.sendall(b'')
-        sc.close()
-        print('  Socket closed')
+                if guess == x:
+                    # Send the winning message and close the connection
+                    sc.sendall(b'Congratulations you did it.\n')
+                    sc.close()
+                    break
+                elif guess_count == 5:
+                    # Send the losing message and close the connection
+                    sc.sendall(b'Sorry, you lose. The number was ' + str(number).encode() + b'.\n')
+                    sc.close()
+                    break
+                else:
+                    # Increase the number of guesses and send the appropriate message to the client
+                    guess_count += 1
+                    if guess < x:
+                        sc.sendall(b'You guessed too small!\n')
+                    else:
+                        sc.sendall(b'You guessed too high!\n')
 
 
 def client(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((host, port))
 
-    attempt_count = 0
+    data = sock.recv(64)
+    message = data.decode()
+    print(message)
+
+    # Game loop
     while True:
-        message = input('if you want to start a game, type "start": ')
-        sock.sendall(message.encode('ascii'))
+        # Send the client's guess to the server
+        guess = input()
+        sock.sendall(guess.encode())
 
-        is_started = False
-        while True:
-            data = sock.recv(42)
-            response = data.decode('ascii')
-            print(response, end=' ')
+        # Receive the server's message
+        data = sock.recv(64)
+        message = data.decode()
+        print(message)
 
-            if not data or response == 'correct' or attempt_count >= 5:
-                break
-
-            if not is_started:
-                if response == 'start':
-                    is_started = True
-                else:
-                    message = input()
-                    sock.sendall(message.encode('ascii'))
-                    continue
-
-            message = input('\n Guess the number: ')
-            sock.sendall(message.encode('ascii'))
-            attempt_count += 1
-
-        break
-    sock.close()
+        # Check if the game is over
+        if message.startswith('Congratulations') or message.startswith('Sorry'):
+            break
 
 
 if __name__ == '__main__':

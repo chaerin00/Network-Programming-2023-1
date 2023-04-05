@@ -1,75 +1,100 @@
+import argparse
+import random
 import socket
-import struct
-from argparse import ArgumentParser
-
-header_struct = struct.Struct('!I')  # messages up to 2**32 - 1 in length
 
 
-def recvall(sock, length):
-    blocks = []
-    while length:
-        block = sock.recv(length)
-        if not block:
-            raise EOFError('socket closed with {} bytes left'
-                           ' in this block'.format(length))
-        length -= len(block)
-        blocks.append(block)
-    return b''.join(blocks)
-
-
-def get_block(sock):
-    data = recvall(sock, header_struct.size)
-    (block_length,) = header_struct.unpack(data)
-    return recvall(sock, block_length)
-
-
-def put_block(sock, message):
-    block_length = len(message)
-    sock.send(header_struct.pack(block_length))
-    sock.send(message)
-
-
-def server(address):
+def server(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(address)
+    sock.bind((host, port))
     sock.listen(1)
     print('Listening at', sock.getsockname())
     while True:
         sc, sockname = sock.accept()
-        print('Accepted connection from', sockname)
-        sc.shutdown(socket.SHUT_WR)
+
+        x = random.randint(1, 10)
+        print('random number is ', x)
+
+        # Send the initial message to the client
+        sc.sendall(b'To start the game, please send "start" as the first message.\n')
+
+        # Game loop
+        is_started = False
+        guess_count = 0
         while True:
-            block = get_block(sc)
-            if not block:
-                break
-            print('Block says:', repr(block))
-        sc.close()
+            # Receive the client's message
+            data = sc.recv(16)
+            message = data.decode()
+
+            # Check if the client wants to start the game
+            if not is_started:
+                if message == 'start':
+                    guess_count += 1
+                    is_started = True
+                    sc.sendall(b'Guess a number between 1 to 10:\n')
+                else:
+                    sc.sendall(b'To start the game, please send "start" as the first message.')
+            else:
+                # Check if the client's guess is correct
+                try:
+                    guess = int(message)
+                except ValueError:
+                    sc.sendall(b'Send a number.')
+                    continue
+
+                if guess == x:
+                    # Send the winning message and close the connection
+                    sc.sendall(b'Congratulations you did it.\n')
+                    sc.close()
+                    break
+                elif guess_count == 5:
+                    # Send the losing message and close the connection
+                    sc.sendall(b'Sorry, you lose. The number was ' + str(x).encode() + b'.\n')
+                    sc.close()
+                    break
+                else:
+                    # Increase the number of guesses and send the appropriate message to the client
+                    guess_count += 1
+                    if guess < x:
+                        sc.sendall(b'You guessed too small!\n')
+                    else:
+                        sc.sendall(b'You guessed too high!\n')
 
 
-def client(address):
+def client(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(address)
-    request = input('if you want to start a game, type "start": ')
-    put_block(sock, request.encode('ascii'))
-    put_block(sock, b'')  # eof
+    sock.connect((host, port))
 
+    data = sock.recv(64)
+    message = data.decode()
+    print(message)
+
+    # Game loop
     while True:
-        block = get_block(sock)
-        if not block:
-            break
-        print('Block says:', repr(block))
+        # Send the client's guess to the server
+        guess = input()
+        sock.sendall(guess.encode())
 
-    sock.close()
+        # Receive the server's message
+        data = sock.recv(64)
+        message = data.decode()
+        print(message)
+
+        # Check if the game is over
+        if message.startswith('Congratulations') or message.startswith('Sorry'):
+            break
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description='Transmit & receive blocks over TCP')
-    parser.add_argument('hostname', nargs='?', default='127.0.0.1',
-                        help='IP address or hostname (default: %(default)s)')
-    parser.add_argument('-c', action='store_true', help='run as the client')
-    parser.add_argument('-p', type=int, metavar='port', default=1060,
-                        help='TCP port number (default: %(default)s)')
+    roles = ('client', 'server')
+    parser = argparse.ArgumentParser(description='Get deadlocked over TCP')
+    parser.add_argument('role', choices=roles, help='which role to play')
+    parser.add_argument('host', help='interface the server listens at;'
+                                     ' host the client sends to')
+    parser.add_argument('-p', metavar='PORT', type=int, default=1060,
+                        help='TCP port (default 1060)')
     args = parser.parse_args()
-    function = client if args.c else server
-    function((args.hostname, args.p))
+    if args.role == 'client':
+        client(args.host, args.p)
+    else:
+        server(args.host, args.p)
