@@ -84,6 +84,8 @@ def client(host, port):
         if message.startswith('Congratulations') or message.startswith('Sorry'):
             break
 
+    sock.close()
+
 
 if __name__ == '__main__':
     roles = ('client', 'server')
