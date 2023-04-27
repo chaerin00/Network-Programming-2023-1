@@ -1,24 +1,8 @@
-#!/usr/bin/env python3
-# Foundations of Python Network Programming, Third Edition
-# https://github.com/brandon-rhodes/fopnp/blob/m/py3/chapter07/srv_threaded.py
-# Using multiple threads to serve several clients in parallel.
-
 import argparse
 import json
 import socket
 import ssl
 from threading import Thread
-
-
-def parse_command_line(description):
-    """Parse command line and return a socket address."""
-    parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('host', help='IP or hostname')
-    parser.add_argument('-p', metavar='port', type=int, default=1060,
-                        help='TCP port (default 1060)')
-    args = parser.parse_args()
-    address = (args.host, args.p)
-    return address
 
 
 def create_srv_socket(address):
@@ -57,14 +41,29 @@ def handle_conversation(sock, address):
 
 
 def handle_request(sock):
-    message = recv_until(sock)
+    message = recvall(sock)
     string = message.decode('utf-8')
     json_obj = json.loads(string)
-    print(json_obj, json_obj['task'])
-    sock.sendall(b'hi')
+    task = json_obj['task']
+    if task == 'ping':
+        response = ping()
+    elif task == 'toggle_string':
+        response = toggle_string()
+    else:
+        raise RuntimeError('Unknown task')
+
+    sock.sendall(response)
 
 
-def recv_until(sock):
+def ping():
+    return b'ping'
+
+
+def toggle_string():
+    return b'toggle'
+
+
+def recvall(sock):
     message = sock.recv(4096)
     if not message:
         raise EOFError('socket closed')
@@ -90,7 +89,7 @@ def client(address, cafile=None):
     print('Accepted connection from {}'.format(address))
     ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
     ssl_sock.sendall(b'{"task":"ping"}')
-    recv_until(ssl_sock)
+    recvall(ssl_sock)
     ssl_sock.close()
 
 
