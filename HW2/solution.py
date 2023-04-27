@@ -6,6 +6,7 @@
 import argparse
 import random
 import socket
+import ssl
 import time
 from threading import Thread
 
@@ -41,12 +42,16 @@ def create_srv_socket(address):
     return listener
 
 
-def accept_connections_forever(listener):
-    """Forever answer incoming connections on a listening socket."""
+def accept_connections_forever(listener, certfile, cafile):
+    purpose = ssl.Purpose.CLIENT_AUTH
+    context = ssl.create_default_context(purpose, cafile=cafile)
+    context.load_cert_chain(certfile)
+
     while True:
-        sock, address = listener.accept()
+        raw_sock, address = listener.accept()
         print('Accepted connection from {}'.format(address))
-        handle_conversation(sock, address)
+        ssl_sock = context.wrap_socket(raw_sock, server_side=True)
+        handle_conversation(ssl_sock, address)
 
 
 def handle_conversation(sock, address):
@@ -83,8 +88,8 @@ def recv_until(sock, suffix):
     return message
 
 
-def start_threads(listener, workers=4):
-    t = (listener,)
+def start_threads(listener, certfile, cafile, workers=4):
+    t = (listener, certfile, cafile,)
     for i in range(workers):
         Thread(target=accept_connections_forever, args=t).start()
 
@@ -112,6 +117,6 @@ if __name__ == '__main__':
     address = (args.host, args.p)
     if args.s:
         listener = create_srv_socket(address)
-        start_threads(listener)
+        start_threads(listener, args.s, args.a)
     else:
         client(address)
