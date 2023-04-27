@@ -53,7 +53,8 @@ def handle_request(sock):
         domain = request['domain']
         response = ping(domain)
     elif task == 'toggle_string':
-        response = toggle_string()
+        s = request['s']
+        response = toggle_string(s)
     else:
         raise RuntimeError('Unknown task')
 
@@ -74,8 +75,20 @@ def ping(domain):
             return str(answer[0])
 
 
-def toggle_string():
-    return b'toggle'
+def toggle_string(s):
+    result = ""
+    for c in s:
+        # check if character is uppercase
+        if ord('A') <= ord(c) <= ord('Z'):
+            # convert to lowercase by adding 32 to ASCII code
+            c = chr(ord(c) + 32)
+        # check if character is lowercase
+        elif ord('a') <= ord(c) <= ord('z'):
+            # convert to uppercase by subtracting 32 from ASCII code
+            c = chr(ord(c) - 32)
+        # append converted character to result
+        result += c
+    return result
 
 
 def recvall(sock):
