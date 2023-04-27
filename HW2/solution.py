@@ -4,6 +4,7 @@
 # Using multiple threads to serve several clients in parallel.
 
 import argparse
+import random
 import socket
 import time
 from threading import Thread
@@ -61,6 +62,7 @@ def handle_conversation(sock, address):
         sock.close()
 
 
+# 여기를 이제 수정해야지
 def handle_request(sock):
     """Receive a single client request on `sock` and send the answer."""
     aphorism = recv_until(sock, b'?')
@@ -87,7 +89,29 @@ def start_threads(listener, workers=4):
         Thread(target=accept_connections_forever, args=t).start()
 
 
+def client(address):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(address)
+    aphorism_list = list(aphorisms)
+    for aphorism in random.sample(aphorism_list, 3):
+        sock.sendall(aphorism)
+        print(aphorism, recv_until(sock, b'.'))
+    sock.close()
+
+
 if __name__ == '__main__':
-    address = parse_command_line('multi-threaded server')
-    listener = create_srv_socket(address)
-    start_threads(listener)
+    parser = argparse.ArgumentParser('multi-threaded server')
+    parser.add_argument('host', help='IP or hostname')
+    parser.add_argument('-p', metavar='port', type=int, default=1060,
+                        help='TCP port (default 1060)')
+    parser.add_argument('-a', metavar='cafile', default=None,
+                        help='authority: path to CA certificate PEM file')
+    parser.add_argument('-s', metavar='certfile', default=None,
+                        help='run as server: path to server PEM file')
+    args = parser.parse_args()
+    address = (args.host, args.p)
+    if args.s:
+        listener = create_srv_socket(address)
+        start_threads(listener)
+    else:
+        client(address)
