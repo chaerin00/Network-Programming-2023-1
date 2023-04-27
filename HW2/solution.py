@@ -94,14 +94,18 @@ def start_threads(listener, certfile, cafile, workers=4):
         Thread(target=accept_connections_forever, args=t).start()
 
 
-def client(address):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(address)
+def client(address, cafile=None):
+    purpose = ssl.Purpose.SERVER_AUTH
+    context = ssl.create_default_context(purpose, cafile=cafile)
+    raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    raw_sock.connect(address)
+    print('Accepted connection from {}'.format(address))
+    ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
     aphorism_list = list(aphorisms)
     for aphorism in random.sample(aphorism_list, 3):
-        sock.sendall(aphorism)
-        print(aphorism, recv_until(sock, b'.'))
-    sock.close()
+        ssl_sock.sendall(aphorism)
+        print(aphorism, recv_until(ssl_sock, b'.'))
+    ssl_sock.close()
 
 
 if __name__ == '__main__':
@@ -119,4 +123,4 @@ if __name__ == '__main__':
         listener = create_srv_socket(address)
         start_threads(listener, args.s, args.a)
     else:
-        client(address)
+        client(address, args.a)
