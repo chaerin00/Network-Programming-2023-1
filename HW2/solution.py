@@ -5,6 +5,8 @@ import ssl
 import zlib
 from threading import Thread
 
+import dns.resolver
+
 
 def create_srv_socket(address):
     """Build and return a listening server socket."""
@@ -48,17 +50,28 @@ def handle_request(sock):
     request = json.loads(decompressed_str)
     task = request['task']
     if task == 'ping':
-        response = ping()
+        domain = request['domain']
+        response = ping(domain)
     elif task == 'toggle_string':
         response = toggle_string()
     else:
         raise RuntimeError('Unknown task')
 
-    sock.sendall(response)
+    response_dict = {
+        "status": "OK",
+        "message": response
+    }
+
+    # encode JSON string as bytes
+    response_bytes = json.dumps(response_dict).encode('utf-8')
+    sock.sendall(response_bytes)
 
 
-def ping():
-    return b'ping'
+def ping(domain):
+    for qtype in 'A', 'AAAA', 'CNAME', 'MX', 'NS':
+        answer = dns.resolver.resolve(domain, qtype, raise_on_no_answer=False)
+        if answer.rrset is not None:
+            return str(answer[0])
 
 
 def toggle_string():
@@ -104,7 +117,16 @@ def client(address, cafile=None):
     # compress byte string using zlib
     compressed_bytes = zlib.compress(json_bytes)
     ssl_sock.sendall(compressed_bytes)
-    recvall(ssl_sock)
+
+    response_bytes = recvall(ssl_sock)
+    response_str = response_bytes.decode('utf-8')
+
+    # parse JSON string into a Python dictionary
+    response_dict = json.loads(response_str)
+
+    # access fields in response dictionary and display them
+    print("Status:", response_dict["status"])
+    print("Message:", response_dict["message"])
     ssl_sock.close()
 
 
