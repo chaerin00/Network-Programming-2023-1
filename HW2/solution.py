@@ -4,21 +4,10 @@
 # Using multiple threads to serve several clients in parallel.
 
 import argparse
-import random
+import json
 import socket
 import ssl
-import time
 from threading import Thread
-
-aphorisms = {b'Beautiful is better than?': b'Ugly.',
-             b'Explicit is better than?': b'Implicit.',
-             b'Simple is better than?': b'Complex.'}
-
-
-def get_answer(aphorism):
-    """Return the string response to a particular Zen-of-Python aphorism."""
-    time.sleep(0.0)  # increase to simulate an expensive operation
-    return aphorisms.get(aphorism, b'Error: unknown aphorism.')
 
 
 def parse_command_line(description):
@@ -67,20 +56,19 @@ def handle_conversation(sock, address):
         sock.close()
 
 
-# 여기를 이제 수정해야지
 def handle_request(sock):
-    """Receive a single client request on `sock` and send the answer."""
-    aphorism = recv_until(sock, b'?')
-    answer = get_answer(aphorism)
-    sock.sendall(answer)
+    message = recv_until(sock)
+    string = message.decode('utf-8')
+    json_obj = json.loads(string)
+    print(json_obj, json_obj['task'])
+    sock.sendall(b'hi')
 
 
-def recv_until(sock, suffix):
-    """Receive bytes over socket `sock` until we receive the `suffix`."""
+def recv_until(sock):
     message = sock.recv(4096)
     if not message:
         raise EOFError('socket closed')
-    while not message.endswith(suffix):
+    while not message:
         data = sock.recv(4096)
         if not data:
             raise IOError('received {!r} then socket closed'.format(message))
@@ -101,10 +89,8 @@ def client(address, cafile=None):
     raw_sock.connect(address)
     print('Accepted connection from {}'.format(address))
     ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
-    aphorism_list = list(aphorisms)
-    for aphorism in random.sample(aphorism_list, 3):
-        ssl_sock.sendall(aphorism)
-        print(aphorism, recv_until(ssl_sock, b'.'))
+    ssl_sock.sendall(b'{"task":"ping"}')
+    recv_until(ssl_sock)
     ssl_sock.close()
 
 
