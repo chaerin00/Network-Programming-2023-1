@@ -2,6 +2,7 @@ import argparse
 import json
 import socket
 import ssl
+import zlib
 from threading import Thread
 
 
@@ -42,9 +43,10 @@ def handle_conversation(sock, address):
 
 def handle_request(sock):
     message = recvall(sock)
-    string = message.decode('utf-8')
-    json_obj = json.loads(string)
-    task = json_obj['task']
+    # decompress byte string using zlib
+    decompressed_str = zlib.decompress(message).decode('utf-8')
+    request = json.loads(decompressed_str)
+    task = request['task']
     if task == 'ping':
         response = ping()
     elif task == 'toggle_string':
@@ -88,7 +90,20 @@ def client(address, cafile=None):
     raw_sock.connect(address)
     print('Accepted connection from {}'.format(address))
     ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
-    ssl_sock.sendall(b'{"task":"ping"}')
+    task = input("Enter the name of task: ")
+    data = {"task": task}
+    if task == 'ping':
+        domain = input("Enter a domain name: ")
+        data["domain"] = domain
+    elif task == 'toggle_string':
+        s = input("Enter a string: ")
+        data["s"] = s
+
+    json_bytes = json.dumps(data).encode('utf-8')
+
+    # compress byte string using zlib
+    compressed_bytes = zlib.compress(json_bytes)
+    ssl_sock.sendall(compressed_bytes)
     recvall(ssl_sock)
     ssl_sock.close()
 
