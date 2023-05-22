@@ -1,37 +1,14 @@
 import argparse
 import json
+import random
 import socket
 import ssl
+import time
 import zlib
-from random import random
 from threading import Thread
 
 import dns.resolver
-
-
-def handle_request(sock):
-    message = recvall(sock)
-    # decompress byte string using zlib
-    decompressed_str = zlib.decompress(message).decode('utf-8')
-    request = json.loads(decompressed_str)
-    task = request['task']
-    if task == 'ping':
-        domain = request['domain']
-        response = ping(domain)
-    elif task == 'toggle_string':
-        s = request['s']
-        response = toggle_string(s)
-    else:
-        raise RuntimeError('Unknown task')
-
-    response_dict = {
-        "status": "OK",
-        "message": response
-    }
-
-    # encode JSON string as bytes
-    response_bytes = json.dumps(response_dict).encode('utf-8')
-    sock.sendall(response_bytes)
+import zmq
 
 
 class NewsGenerator:
@@ -44,6 +21,9 @@ class NewsGenerator:
         self.companies = ["Apple", "Microsoft", "Google", "Amazon",
                           "Facebook", "Tesla"]
 
+    def get_topics(self):
+        return self.topics
+
     def get_news(self):
         # Generate a random news headline.
         topic = random.choice(self.topics)
@@ -51,6 +31,112 @@ class NewsGenerator:
         company = random.choice(self.companies)
         headline = topic + " " + company + " " + event
         return headline
+
+
+def publisher(zcontext, url):
+    """Produce random points in the unit square."""
+    zsock = zcontext.socket(zmq.PUB)
+    zsock.bind(url)
+    newsGenerator = NewsGenerator()
+    # send news for every 0.1
+    while True:
+        zsock.send_string(newsGenerator.get_news())
+        time.sleep(0.1)
+
+
+def subscriber(zcontext, url):
+    sock = zcontext.socket(zmq.SUB)
+    sock.connect(url)
+    newsGenerator = NewsGenerator()
+    print(newsGenerator.get_topics())
+    topic = input("select topic: ")
+    sock.setsockopt(zmq.SUBSCRIBE, topic.encode('ascii'))
+    end_t = time.time() + 10
+    while time.time() < end_t:
+        data = sock.recv_string()
+        print(data)
+    sock.disconnect(url)
+
+
+class StockTicker:
+    def __init__(self):
+        self.companies = ["AAPL", "MSFT", "GOOGL"]
+        self.prices = {}
+        for company in self.companies:
+            self.prices[company] = random.randint(100, 1000)
+
+    def get_companies(self):
+        return self.companies
+
+    def generate_stock_price(self, company):
+        if company not in self.companies:
+            raise ValueError("Invalid company")
+        # Generate a random stock price for the company
+        price = random.randint(100, 1000)
+        self.prices[company] = price
+        return price
+
+
+def stock_client(zcontext, url):
+    sock = zcontext.socket(zmq.PULL)
+    sock.bind(url)
+    company_list = StockTicker().get_companies()
+    print(company_list)
+    target_company = input("select company: ")
+    while target_company not in company_list:
+        target_company = input("select company: ")
+    # get stock price for 10 seconds
+    end_t = time.time() + 10
+    while time.time() < end_t:
+        company, price = sock.recv_json()
+        # filter pushed depending on company
+        if company == target_company:
+            print(company + ": " + str(price))
+
+
+def stock_ticker(zcontext, url):
+    sock = zcontext.socket(zmq.PUSH)
+    sock.connect(url)
+    ticker = StockTicker()
+    while True:
+        # choose random company
+        company = random.choice(ticker.get_companies())
+        price = ticker.generate_stock_price(company)
+        if price:
+            sock.send_json((company, price))
+        else:
+            continue
+        time.sleep(0.1)
+
+
+def handle_request(sock):
+    message = recvall(sock)
+    # decompress byte string using zlib
+    decompressed_str = zlib.decompress(message).decode('utf-8')
+    request = json.loads(decompressed_str)
+    task = request['task']
+    zcontext = zmq.Context()
+    if task == 'ping':
+        domain = request['domain']
+        response = ping(domain)
+    elif task == 'toggle_string':
+        s = request['s']
+        response = toggle_string(s)
+    elif task == 'news':
+        publisher(zcontext, 'tcp://127.0.0.1:6700')
+    elif task == 'stock':
+        stock_ticker(zcontext, 'tcp://127.0.0.1:6701')
+    else:
+        raise RuntimeError('Unknown task')
+
+    response_dict = {
+        "status": "OK",
+        "message": response
+    }
+
+    # encode JSON string as bytes
+    response_bytes = json.dumps(response_dict).encode('utf-8')
+    sock.sendall(response_bytes)
 
 
 def ping(domain):
@@ -138,29 +224,42 @@ def client(address, cafile=None):
     ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
     task = input("Enter the name of task: ")
     data = {"task": task}
-    if task == 'ping':
-        domain = input("Enter a domain name: ")
-        data["domain"] = domain
-    elif task == 'toggle_string':
-        s = input("Enter a string: ")
-        data["s"] = s
+    if task in ['ping', 'toggle_string']:
+        if task == 'ping':
+            domain = input("Enter a domain name: ")
+            data["domain"] = domain
+        elif task == 'toggle_string':
+            s = input("Enter a string: ")
+            data["s"] = s
 
-    json_bytes = json.dumps(data).encode('utf-8')
+        json_bytes = json.dumps(data).encode('utf-8')
 
-    # compress byte string using zlib
-    compressed_bytes = zlib.compress(json_bytes)
-    ssl_sock.sendall(compressed_bytes)
+        # compress byte string using zlib
+        compressed_bytes = zlib.compress(json_bytes)
+        ssl_sock.sendall(compressed_bytes)
 
-    response_bytes = recvall(ssl_sock)
-    response_str = response_bytes.decode('utf-8')
+        response_bytes = recvall(ssl_sock)
+        response_str = response_bytes.decode('utf-8')
 
-    # parse JSON string into a Python dictionary
-    response_dict = json.loads(response_str)
+        # parse JSON string into a Python dictionary
+        response_dict = json.loads(response_str)
 
-    # access fields in response dictionary and display them
-    print("Status:", response_dict["status"])
-    print("Message:", response_dict["message"])
-    ssl_sock.close()
+        # access fields in response dictionary and display them
+        print("Status:", response_dict["status"])
+        print("Message:", response_dict["message"])
+        ssl_sock.close()
+
+    elif task in ['news', 'stock']:
+        json_bytes = json.dumps(data).encode('utf-8')
+
+        # compress byte string using zlib
+        compressed_bytes = zlib.compress(json_bytes)
+        ssl_sock.sendall(compressed_bytes)
+        zcontext = zmq.Context()
+        if task == 'news':
+            subscriber(zcontext, 'tcp://127.0.0.1:6700')
+        elif task == 'stock':
+            stock_client(zcontext, 'tcp://127.0.0.1:6701')
 
 
 if __name__ == '__main__':

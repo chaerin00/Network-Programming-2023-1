@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# Foundations of Python Network Programming, Third Edition
-# https://github.com/brandon-rhodes/fopnp/blob/m/py3/chapter08/queuepi.py
-# Small application that uses several different message queues
 import random
 import sys
 import threading
@@ -77,8 +73,16 @@ def stock_client(zcontext, url):
     """Tally how many points fall within the unit circle, and print pi."""
     zsock = zcontext.socket(zmq.PULL)
     zsock.bind(url)
-    price = zsock.recv_string()
-    print(price)
+    company_list = StockTicker().get_companies()
+    print(company_list)
+    target_company = input("select company: ")
+    while target_company not in company_list:
+        target_company = input("select company: ")
+    end_t = time.time() + 10
+    while time.time() < end_t:
+        company, price = zsock.recv_json()
+        if company == target_company:
+            print(company + ": " + str(price))
 
 
 def stock_ticker(zcontext, url):
@@ -86,11 +90,15 @@ def stock_ticker(zcontext, url):
     zsock = zcontext.socket(zmq.PUSH)
     zsock.connect(url)
     ticker = StockTicker()
-    print(ticker.get_companies())
-    company = input("select company: ")
-    price = ticker.generate_stock_price(company)
-    if price:
-        zsock.send_string(str(price))
+    while True:
+        company = random.choice(ticker.get_companies())
+        price = ticker.generate_stock_price(company)
+        if price:
+            zsock.send_json((company, price))
+        else:
+            continue
+
+        time.sleep(0.1)
 
 
 class Chatroom:
@@ -137,7 +145,7 @@ def member(zcontext, url):
     zsock = zcontext.socket(zmq.REQ)
     zsock.connect(url)
     name = input("What is your name? ")
-    zsock.send_json(("join", name, "chaerin"))
+    zsock.send_json(("join", name, name))
     zsock.recv_json()
     zsock.send_json(("send", name, "Hi there! I'm " + name))
     status, sender, message = zsock.recv_json()
@@ -157,14 +165,15 @@ def main(zcontext):
     pubsub = 'tcp://127.0.0.1:6700'
     reqrep = 'tcp://127.0.0.1:6701'
     pushpull = 'tcp://127.0.0.1:6702'
+    print("select task (news, stock, chat): ")
     task = sys.stdin.readline().rstrip()
     if task == "news":
         start_thread(subscriber, zcontext, pubsub)
         start_thread(publisher, zcontext, pubsub)
-    if task == "stock":
+    elif task == "stock":
         start_thread(stock_client, zcontext, pushpull)
         start_thread(stock_ticker, zcontext, pushpull)
-    if task == "chat":
+    elif task == "chat":
         start_thread(owner, zcontext, reqrep)
         start_thread(member, zcontext, reqrep)
     else:
