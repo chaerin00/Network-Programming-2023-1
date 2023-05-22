@@ -93,6 +93,60 @@ def stock_ticker(zcontext, url):
         zsock.send_string(str(price))
 
 
+class Chatroom:
+    def __init__(self):
+        self.clients = []
+
+    def join(self, client):
+        self.clients.append(client)
+
+    def leave(self, client):
+        self.clients.remove(client)
+
+    def send(self, sender, message):
+        for client in self.clients:
+            if client != sender:
+                client.send((sender, message))
+
+
+def owner(zcontext, url):
+    zsock = zcontext.socket(zmq.REP)
+    zsock.bind(url)
+    chat_room = Chatroom()
+    while True:
+        (request, sender, message) = zsock.recv_json()
+        if request == "join":
+            chat_room.join(message)
+            response = ('success', 'owner', sender + " joined")
+            print("owner: " + sender + " joined")
+        elif request == "send":
+            chat_room.send(sender, message)
+            response = ('success', sender, message)
+            print(sender + ": " + message)
+        elif request == "leave":
+            chat_room.leave(sender)
+            response = ('success', "owner", sender + " leaved")
+            print("owner: " + sender + " leaved")
+        else:
+            response = ("fail", 'owner', "Not found task")
+
+        zsock.send_json(response)
+
+
+def member(zcontext, url):
+    zsock = zcontext.socket(zmq.REQ)
+    zsock.connect(url)
+    name = input("What is your name? ")
+    zsock.send_json(("join", name, "chaerin"))
+    zsock.recv_json()
+    zsock.send_json(("send", name, "Hi there! I'm " + name))
+    status, sender, message = zsock.recv_json()
+    if message and status and sender != name:
+        print(message)
+    zsock.send_json(("leave", name, "leave"))
+    zsock.recv_json()
+
+
 def start_thread(function, *args):
     thread = threading.Thread(target=function, args=args)
     thread.daemon = True  # so you can easily Ctrl-C the whole program
@@ -101,21 +155,20 @@ def start_thread(function, *args):
 
 def main(zcontext):
     pubsub = 'tcp://127.0.0.1:6700'
-    # reqrep = 'tcp://127.0.0.1:6701'
+    reqrep = 'tcp://127.0.0.1:6701'
     pushpull = 'tcp://127.0.0.1:6702'
     task = sys.stdin.readline().rstrip()
     if task == "news":
         start_thread(subscriber, zcontext, pubsub)
         start_thread(publisher, zcontext, pubsub)
-    if task == "stock_ticker":
+    if task == "stock":
         start_thread(stock_client, zcontext, pushpull)
         start_thread(stock_ticker, zcontext, pushpull)
+    if task == "chat":
+        start_thread(owner, zcontext, reqrep)
+        start_thread(member, zcontext, reqrep)
     else:
         exit()
-    # start_thread(publisher, zcontext, pubsub)
-    # start_thread(judge, zcontext, pubsub, reqrep, pushpull)
-    # start_thread(pythagoras, zcontext, reqrep)
-    # start_thread(tally, zcontext, pushpull)
     time.sleep(30)
 
 
