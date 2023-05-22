@@ -109,6 +109,65 @@ def stock_ticker(zcontext, url):
         time.sleep(0.1)
 
 
+class Chatroom:
+    def __init__(self):
+        self.clients = []
+
+    def join(self, client):
+        self.clients.append(client)
+        print(self.clients)
+
+    def leave(self, client):
+        self.clients.remove(client)
+
+    def send(self, sender, message):
+        for client in self.clients:
+            if client != sender:
+                client.send((sender, message))
+
+
+def chat_owner(zcontext, url):
+    zsock = zcontext.socket(zmq.REP)
+    zsock.bind(url)
+    chat_room = Chatroom()
+
+    while True:
+        try:
+            (request, sender, message) = zsock.recv_json()
+            print(request, sender, message)
+            if request == "join":
+                chat_room.join(sender)
+                response = ('success', 'chat_owner', sender + " joined")
+            elif request == "send":
+                chat_room.send(sender, message)
+                response = ('success', sender, message)
+            elif request == "leave":
+                chat_room.leave(sender)
+                response = ('success', "chat_owner", sender + " leaved")
+            else:
+                response = ("fail", 'chat_owner', "Not found task")
+        except Exception as e:
+            response = ("fail", 'chat_owner', "Not valid request")
+        finally:
+            zsock.send_json(response)
+
+
+def chat_member(zcontext, url):
+    zsock = zcontext.socket(zmq.REQ)
+    zsock.connect(url)
+    name = input("What is your name? ")
+    while True:
+        message = ''
+        task = input("What do you want to do? (join, send, leave) : ")
+        if task == 'send':
+            message = input("message: ")
+        zsock.send_json((task, name, message))
+        status, sender, message = (zsock.recv_json())
+        print("[{}] {}: {}".format(status, sender, message))
+        if task == 'leave' and status == 'success':
+            break
+
+
 def handle_request(sock):
     message = recvall(sock)
     # decompress byte string using zlib
@@ -126,6 +185,8 @@ def handle_request(sock):
         publisher(zcontext, 'tcp://127.0.0.1:6700')
     elif task == 'stock':
         stock_ticker(zcontext, 'tcp://127.0.0.1:6701')
+    elif task == 'chat':
+        chat_owner(zcontext, 'tcp://127.0.0.1:6702')
     else:
         raise RuntimeError('Unknown task')
 
@@ -249,7 +310,7 @@ def client(address, cafile=None):
         print("Message:", response_dict["message"])
         ssl_sock.close()
 
-    elif task in ['news', 'stock']:
+    elif task in ['news', 'stock', 'chat']:
         json_bytes = json.dumps(data).encode('utf-8')
 
         # compress byte string using zlib
@@ -260,6 +321,8 @@ def client(address, cafile=None):
             subscriber(zcontext, 'tcp://127.0.0.1:6700')
         elif task == 'stock':
             stock_client(zcontext, 'tcp://127.0.0.1:6701')
+        elif task == 'chat':
+            chat_member(zcontext, 'tcp://127.0.0.1:6702')
 
 
 if __name__ == '__main__':
