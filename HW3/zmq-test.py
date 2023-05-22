@@ -42,9 +42,9 @@ def publisher(zcontext, url):
         time.sleep(0.1)
 
 
-def subscriber(zcontext, in_url):
+def subscriber(zcontext, url):
     isock = zcontext.socket(zmq.SUB)
-    isock.connect(in_url)
+    isock.connect(url)
     newsGenerator = NewsGenerator()
     print(newsGenerator.get_topics())
     topic = input("select topic: ")
@@ -54,45 +54,43 @@ def subscriber(zcontext, in_url):
         print(data)
 
 
-def judge(zcontext, in_url, pythagoras_url, out_url):
-    """Determine whether each input coordinate is inside the unit circle."""
-    isock = zcontext.socket(zmq.SUB)
-    isock.connect(in_url)
-    for prefix in b'01', b'10', b'11':
-        isock.setsockopt(zmq.SUBSCRIBE, prefix)
-    psock = zcontext.socket(zmq.REQ)
-    psock.connect(pythagoras_url)
-    osock = zcontext.socket(zmq.PUSH)
-    osock.connect(out_url)
-    unit = 2 ** (B * 2)
-    while True:
-        bits = isock.recv_string()
-        n, m = int(bits[::2], 2), int(bits[1::2], 2)
-        psock.send_json((n, m))
-        sumsquares = psock.recv_json()
-        osock.send_string('Y' if sumsquares < unit else 'N')
+class StockTicker:
+    def __init__(self):
+        self.companies = ["AAPL", "MSFT", "GOOGL"]
+        self.prices = {}
+        for company in self.companies:
+            self.prices[company] = random.randint(100, 1000)
+
+    def get_companies(self):
+        return self.companies
+
+    def generate_stock_price(self, company):
+        if company not in self.companies:
+            raise ValueError("Invalid company")
+        # Generate a random stock price for the company
+        price = random.randint(100, 1000)
+        self.prices[company] = price
+        return price
 
 
-def pythagoras(zcontext, url):
-    """Return the sum-of-squares of number sequences."""
-    zsock = zcontext.socket(zmq.REP)
-    zsock.bind(url)
-    while True:
-        numbers = zsock.recv_json()
-        zsock.send_json(sum(n * n for n in numbers))
-
-
-def tally(zcontext, url):
+def stock_client(zcontext, url):
     """Tally how many points fall within the unit circle, and print pi."""
     zsock = zcontext.socket(zmq.PULL)
     zsock.bind(url)
-    p = q = 0
-    while True:
-        decision = zsock.recv_string()
-        q += 1
-        if decision == 'Y':
-            p += 4
-        print(decision, p / q)
+    price = zsock.recv_string()
+    print(price)
+
+
+def stock_ticker(zcontext, url):
+    """Tally how many points fall within the unit circle, and print pi."""
+    zsock = zcontext.socket(zmq.PUSH)
+    zsock.connect(url)
+    ticker = StockTicker()
+    print(ticker.get_companies())
+    company = input("select company: ")
+    price = ticker.generate_stock_price(company)
+    if price:
+        zsock.send_string(str(price))
 
 
 def start_thread(function, *args):
@@ -104,11 +102,16 @@ def start_thread(function, *args):
 def main(zcontext):
     pubsub = 'tcp://127.0.0.1:6700'
     # reqrep = 'tcp://127.0.0.1:6701'
-    # pushpull = 'tcp://127.0.0.1:6702'
+    pushpull = 'tcp://127.0.0.1:6702'
     task = sys.stdin.readline().rstrip()
     if task == "news":
         start_thread(subscriber, zcontext, pubsub)
         start_thread(publisher, zcontext, pubsub)
+    if task == "stock_ticker":
+        start_thread(stock_client, zcontext, pushpull)
+        start_thread(stock_ticker, zcontext, pushpull)
+    else:
+        exit()
     # start_thread(publisher, zcontext, pubsub)
     # start_thread(judge, zcontext, pubsub, reqrep, pushpull)
     # start_thread(pythagoras, zcontext, reqrep)
