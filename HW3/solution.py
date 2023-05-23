@@ -283,7 +283,7 @@ def client(address, cafile=None):
     raw_sock.connect(address)
     print('Accepted connection from {}'.format(address))
     ssl_sock = context.wrap_socket(raw_sock, server_hostname=address[0])
-    task = input("Enter the name of task: ")
+    task = input("Enter the name of task (ping, toggle_string, news, stock, chat): ")
     data = {"task": task}
     if task in ['ping', 'toggle_string']:
         if task == 'ping':
