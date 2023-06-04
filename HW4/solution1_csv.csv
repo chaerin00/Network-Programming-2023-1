@@ -1,0 +1,11 @@
+Keywords,Definitions
+HTTP,Hypertext Transfer Protocol (HTTP) is an application layer protocol that allows the transfer of resources on the World Wide Web.
+Host,A host refers to a computer or device on a network that provides services or resources to other computers or devices.
+Port,A port is a communication endpoint in an operating system that allows multiple processes to share a single network connection.
+Header,"In the context of HTTP, a header is a part of the request or response message that carries additional information."
+Encryption,"Encryption is the process of converting data into a format that is unreadable by unauthorized users, ensuring data security."
+Framing,Framing in networking refers to the division of data into manageable units called frames for efficient transmission and reception.
+GET common method,GET is an HTTP method used to retrieve resources from a server.
+POST common method,POST is an HTTP method used to submit data to be processed by a specified resource.
+URL,A Uniform Resource Locator (URL) is a web address that specifies the location of a resource on the internet.
+Status Code,A status code is a three-digit number sent by a server as part of an HTTP response to indicate the status of the request.
