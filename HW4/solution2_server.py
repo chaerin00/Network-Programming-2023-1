@@ -7,6 +7,20 @@ from flask import (Flask, request)
 app = Flask(__name__)
 
 
+def find_member(target_name):
+    # Open the CSV file and read its contents
+    with open('solution2_csv.csv', 'r') as file:
+        csv_reader = csv.reader(file)
+
+        # Iterate over each row in the CSV file
+        for row in csv_reader:
+            name = row[0]  # Assuming the name is in the first column
+
+            # Check if the name matches the target name
+            if target_name in name:
+                return row
+
+
 def save_csv_data(rows):
     with open('solution2_csv.csv', 'w', newline='') as file:
         writer = csv.writer(file)
@@ -32,7 +46,6 @@ def scrape_member_details(url):
         for p in paragraphs:
             text = p.text
             if "(" in text and (")Research Interests:" in text or "@" in text):
-                print('text---------------------\n', text)
                 name, text = text.split("(", 1)
                 role, text = text.split(",", 1)
                 text = text.split('-', 1)
@@ -66,8 +79,8 @@ def home():
     args = request.args
     print(args.to_dict())
     # Call the scraper function
-    result = scrape_member_details(url)
-    print(result)
+    scrape_member_details(url)
+    result = find_member('Ankit')
 
     return result
 
