@@ -2,12 +2,13 @@ import csv
 
 import requests
 from bs4 import BeautifulSoup
-from flask import (Flask, request)
+from flask import (Flask, request, jsonify)
 
 app = Flask(__name__)
 
 
 def find_member(target_name):
+    result = []
     # Open the CSV file and read its contents
     with open('solution2_csv.csv', 'r') as file:
         csv_reader = csv.reader(file)
@@ -18,7 +19,8 @@ def find_member(target_name):
 
             # Check if the name matches the target name
             if target_name in name:
-                return row
+                result.append(row)
+    return result
 
 
 def save_csv_data(rows):
@@ -77,12 +79,24 @@ def home():
     # URL of the website to scrape
     url = "https://sites.google.com/view/davidchoi/home/members"
     args = request.args
-    print(args.to_dict())
+    query = args.to_dict()
     # Call the scraper function
     scrape_member_details(url)
-    result = find_member('Ankit')
+    searched_members = find_member(query['name'])
+    response_data = []
+    for member in searched_members:
+        member_response = {
+            "name": member[0],
+            "job_role": member[1],
+            "start_year": member[2],
+            "end_year": member[3],
+            "research_interest": member[4],
+            "current_job_role": member[5],
+            "profile_pic_url": member[6]
+        }
+        response_data.append(member_response)
 
-    return result
+    return jsonify(response_data)
 
 
 if __name__ == '__main__':
