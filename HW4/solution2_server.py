@@ -51,16 +51,16 @@ def scrape_member_details(url):
                 name, text = text.split("(", 1)
                 role, text = text.split(",", 1)
                 text = text.split('-', 1)
-                start_year = None
+                start_year = "NA"
                 if len(text) == 2:
                     start_year = text[0]
                     text = text[1]
                 else:
                     text = text[0]
                 end_year, text = text.split(")", 1)
-                end_year = None if len(end_year) == 0 else end_year
-                interests = None
-                current_job_role = None
+                end_year = "NA" if len(end_year) == 0 else end_year
+                interests = "NA"
+                current_job_role = "NA"
                 if "Research Interests:" in text:
                     _, interests = text.split('Research Interests:', 1)
                 elif "@" in text:
@@ -89,11 +89,10 @@ def home():
             "name": member[0],
             "job_role": member[1],
             "start_year": member[2],
-            # place NA for missing value
-            "end_year": member[3] if len(member[3]) > 0 else "NA",
-            "research_interest": member[4] if len(member[4]) > 0 else "NA",
-            "current_job_role": member[5] if len(member[5]) > 0 else "NA",
-            "profile_pic_url": member[6] if len(member[6]) > 0 else "NA"
+            "end_year": member[3],
+            "research_interest": member[4],
+            "current_job_role": member[5],
+            "profile_pic_url": member[6]
         }
         response_data.append(member_response)
 
