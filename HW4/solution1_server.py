@@ -8,8 +8,11 @@ definitions = []
 
 
 def find_definition(keyword):
-    idx = keywords.index(keyword)
-    return definitions[idx]
+    if keyword in keywords:
+        idx = keywords.index(keyword)
+        return definitions[idx]
+    else:
+        return 'No result'
 
 
 def read_csv():

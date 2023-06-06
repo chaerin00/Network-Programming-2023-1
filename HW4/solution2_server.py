@@ -51,23 +51,27 @@ def scrape_member_details(url):
                 name, text = text.split("(", 1)
                 role, text = text.split(",", 1)
                 text = text.split('-', 1)
-                start_year = None
+                start_year = "NA"
                 if len(text) == 2:
                     start_year = text[0]
                     text = text[1]
                 else:
                     text = text[0]
                 end_year, text = text.split(")", 1)
-                end_year = None if len(end_year) == 0 else end_year
-                interests = None
-                current_job_role = None
+                end_year = "NA" if len(end_year) == 0 else end_year
+                interests = "NA"
+                current_job_role = "NA"
                 if "Research Interests:" in text:
                     _, interests = text.split('Research Interests:', 1)
                 elif "@" in text:
                     current_job_role, _ = text.split('@', 1)
                 row = [name, role, start_year, end_year, interests, current_job_role]
                 if len(images) > 0:
-                    row.append(images.pop())
+                    image = images.pop()
+                if image:
+                    row.append(image)
+                else:
+                    row.append('NA')
                 rows.append(row)
 
     save_csv_data(rows)
