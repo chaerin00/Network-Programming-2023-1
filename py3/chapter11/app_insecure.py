@@ -4,12 +4,14 @@
 # A poorly-written and profoundly insecure payments application.
 # (Not the fault of Flask, but of how we are choosing to use it!)
 
-import bank
 from flask import Flask, redirect, request, url_for
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, FileSystemLoader
+
+import bank
 
 app = Flask(__name__)
-get = Environment(loader=PackageLoader(__name__, 'templates')).get_template
+get = Environment(loader=FileSystemLoader('templates')).get_template
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -22,11 +24,13 @@ def login():
             return response
     return get('login.html').render(username=username)
 
+
 @app.route('/logout')
 def logout():
     response = redirect(url_for('login'))
     response.set_cookie('username', '')
     return response
+
 
 @app.route('/')
 def index():
@@ -35,7 +39,8 @@ def index():
         return redirect(url_for('login'))
     payments = bank.get_payments_of(bank.open_database(), username)
     return get('index.html').render(payments=payments, username=username,
-        flash_messages=request.args.getlist('flash'))
+                                    flash_messages=request.args.getlist('flash'))
+
 
 @app.route('/pay', methods=['GET', 'POST'])
 def pay():
@@ -56,6 +61,7 @@ def pay():
                      else 'Please fill in all three fields')
     return get('pay.html').render(complaint=complaint, account=account,
                                   dollars=dollars, memo=memo)
+
 
 if __name__ == '__main__':
     app.debug = True
