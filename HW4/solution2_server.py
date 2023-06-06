@@ -89,10 +89,11 @@ def home():
             "name": member[0],
             "job_role": member[1],
             "start_year": member[2],
-            "end_year": member[3],
-            "research_interest": member[4],
-            "current_job_role": member[5],
-            "profile_pic_url": member[6]
+            # place NA for missing value
+            "end_year": member[3] if len(member[3]) > 0 else "NA",
+            "research_interest": member[4] if len(member[4]) > 0 else "NA",
+            "current_job_role": member[5] if len(member[5]) > 0 else "NA",
+            "profile_pic_url": member[6] if len(member[6]) > 0 else "NA"
         }
         response_data.append(member_response)
 
