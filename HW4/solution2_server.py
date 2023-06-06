@@ -67,7 +67,11 @@ def scrape_member_details(url):
                     current_job_role, _ = text.split('@', 1)
                 row = [name, role, start_year, end_year, interests, current_job_role]
                 if len(images) > 0:
-                    row.append(images.pop())
+                    image = images.pop()
+                if image:
+                    row.append(image)
+                else:
+                    row.append('NA')
                 rows.append(row)
 
     save_csv_data(rows)
